@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>Photo Upscaler 32MP - ZIP Mode</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; text-align: center; padding: 50px; background: #ececec; }
+        .card { background: white; padding: 40px; border-radius: 15px; display: inline-block; box-shadow: 0 10px 25px rgba(0,0,0,0.1); max-width: 500px; }
+        .loading-bar { display: none; margin: 20px 0; font-weight: bold; color: #d35400; }
+        .btn { background: #27ae60; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-size: 16px; }
+        .btn:disabled { background: #bdc3c7; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2>Upscaler 32MP (Batch Zip)</h2>
+        <p>Pilih maksimal 3 foto (15MB/foto).<br>Foto akan diproses antre satu per satu.</p>
+        
+        <input type="file" id="photoInput" accept="image/*" multiple>
+        <br><br>
+        <button id="btnStart" class="btn" onclick="uploadPhotos()">Mulai Proses Antrean</button>
+        
+        <div id="loader" class="loading-bar">Sedang memproses antrean foto...<br>Mohon tunggu 1-4 menit.</div>
+        <div id="result"></div>
+    </div>
+
+    <script>
+        async function uploadPhotos() {
+            const fileInput = document.getElementById('photoInput');
+            const btn = document.getElementById('btnStart');
+            
+            if (fileInput.files.length === 0) return alert('Pilih foto dulu!');
+            if (fileInput.files.length > 3) return alert('Maksimal 3 foto saja agar server tidak berat.');
+
+            const formData = new FormData();
+            for (let i = 0; i < fileInput.files.length; i++) {
+                formData.append('photos', fileInput.files[i]);
+            }
+
+            btn.disabled = true;
+            document.getElementById('loader').style.display = 'block';
+            document.getElementById('result').innerHTML = '';
+
+            try {
+                const response = await fetch('/process', { method: 'POST', body: formData });
+                const data = await response.json();
+
+                if (data.success) {
+                    document.getElementById('result').innerHTML = `
+                        <p style="color:green">Semua foto selesai dijernihkan!</p>
+                        <a href="${data.downloadUrl}" class="btn" style="background:#2980b9; text-decoration:none;">DOWNLOAD SEMUA (.ZIP)</a>
+                    `;
+                }
+            } catch (error) {
+                alert('Terjadi kesalahan atau waktu habis (timeout).');
+            } finally {
+                btn.disabled = false;
+                document.getElementById('loader').style.display = 'none';
+            }
+        }
+    </script>
+</body>
+  </html>
+  
