@@ -1,6 +1,6 @@
 {
   "name": "photo-upscaler-32mp",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "main": "server.js",
   "scripts": {
     "start": "node --max-old-space-size=850 server.js"
@@ -9,6 +9,8 @@
     "express": "^4.18.2",
     "multer": "^1.4.5-lts.1",
     "sharp": "^0.32.6",
-    "archiver": "^6.0.1"
+    "archiver": "^6.0.1",
+    "replicate": "^0.20.0",
+    "axios": "^1.6.0"
   }
 }
