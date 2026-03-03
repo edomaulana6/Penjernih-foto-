@@ -5,10 +5,19 @@
     <title>Photo Upscaler 32MP - ZIP Mode</title>
     <style>
         body { font-family: 'Segoe UI', sans-serif; text-align: center; padding: 50px; background: #ececec; }
-        .card { background: white; padding: 40px; border-radius: 15px; display: inline-block; box-shadow: 0 10px 25px rgba(0,0,0,0.1); max-width: 500px; }
+        .card { background: white; padding: 40px; border-radius: 15px; display: inline-block; box-shadow: 0 10px 25px rgba(0,0,0,0.1); max-width: 500px; width: 100%; }
         .loading-bar { display: none; margin: 20px 0; font-weight: bold; color: #d35400; }
-        .btn { background: #27ae60; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-size: 16px; }
+        .btn { background: #27ae60; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-size: 16px; margin: 5px; }
         .btn:disabled { background: #bdc3c7; }
+        .btn-cancel { background: #e74c3c; display: none; }
+        
+        /* CSS Slider Comparison */
+        .comparison-view { display: none; position: relative; width: 100%; aspect-ratio: 1/1; overflow: hidden; border-radius: 12px; margin-top: 20px; border: 1px solid #ddd; background: #f9f9f9; }
+        .comp-img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; }
+        .img-after { clip-path: inset(0 0 0 50%); }
+        .slider-line { position: absolute; top: 0; bottom: 0; width: 4px; background: white; left: 50%; cursor: ew-resize; z-index: 10; box-shadow: 0 0 10px rgba(0,0,0,0.3); }
+        
+        .option-box { margin: 15px 0; font-size: 14px; font-weight: bold; color: #2c3e50; }
     </style>
 </head>
 <body>
@@ -16,49 +25,104 @@
         <h2>Upscaler 32MP (Batch Zip)</h2>
         <p>Pilih maksimal 3 foto (15MB/foto).<br>Foto akan diproses antre satu per satu.</p>
         
-        <input type="file" id="photoInput" accept="image/*" multiple>
-        <br><br>
+        <input type="file" id="photoInput" accept="image/*" multiple onchange="previewFiles()">
+        
+        <div class="option-box">
+            <input type="checkbox" id="faceEnhance"> ✨ Penjernih Wajah (Ala Remini)
+        </div>
+
+        <br>
         <button id="btnStart" class="btn" onclick="uploadPhotos()">Mulai Proses Antrean</button>
+        <button id="btnCancel" class="btn btn-cancel" onclick="cancelUpload()">Batal</button>
         
         <div id="loader" class="loading-bar">Sedang memproses antrean foto...<br>Mohon tunggu 1-4 menit.</div>
+
+        <div id="compareContainer" class="comparison-view" onmousemove="handleMove(event)" ontouchmove="handleMove(event)">
+            <img id="imgBefore" class="comp-img">
+            <img id="imgAfter" class="comp-img img-after">
+            <div id="sliderLine" class="slider-line"></div>
+        </div>
+
         <div id="result"></div>
     </div>
 
     <script>
+        let controller;
+
+        // Preview saat pilih file
+        function previewFiles() {
+            const file = document.getElementById('photoInput').files[0];
+            if (file) {
+                const url = URL.createObjectURL(file);
+                document.getElementById('imgBefore').src = url;
+                document.getElementById('imgAfter').src = url; // Sama dulu sebelum diproses
+                document.getElementById('compareContainer').style.display = 'block';
+            }
+        }
+
         async function uploadPhotos() {
             const fileInput = document.getElementById('photoInput');
             const btn = document.getElementById('btnStart');
+            const btnCancel = document.getElementById('btnCancel');
+            const faceFix = document.getElementById('faceEnhance').checked;
             
             if (fileInput.files.length === 0) return alert('Pilih foto dulu!');
-            if (fileInput.files.length > 3) return alert('Maksimal 3 foto saja agar server tidak berat.');
-
+            
+            controller = new AbortController();
             const formData = new FormData();
             for (let i = 0; i < fileInput.files.length; i++) {
                 formData.append('photos', fileInput.files[i]);
             }
+            formData.append('faceEnhance', faceFix);
 
             btn.disabled = true;
+            btnCancel.style.display = 'inline-block';
             document.getElementById('loader').style.display = 'block';
             document.getElementById('result').innerHTML = '';
 
             try {
-                const response = await fetch('/process', { method: 'POST', body: formData });
+                const response = await fetch('/process', { 
+                    method: 'POST', 
+                    body: formData,
+                    signal: controller.signal 
+                });
                 const data = await response.json();
 
                 if (data.success) {
+                    // Update gambar 'After' dengan hasil jernih dari server
+                    document.getElementById('imgAfter').src = data.previewUrl;
                     document.getElementById('result').innerHTML = `
-                        <p style="color:green">Semua foto selesai dijernihkan!</p>
+                        <p style="color:green; font-weight:bold;">✓ Semua foto selesai dijernihkan!</p>
                         <a href="${data.downloadUrl}" class="btn" style="background:#2980b9; text-decoration:none;">DOWNLOAD SEMUA (.ZIP)</a>
                     `;
                 }
             } catch (error) {
-                alert('Terjadi kesalahan atau waktu habis (timeout).');
+                if (error.name === 'AbortError') {
+                    alert('Proses dibatalkan oleh pengguna.');
+                } else {
+                    alert('Terjadi kesalahan atau waktu habis (timeout).');
+                }
             } finally {
                 btn.disabled = false;
+                btnCancel.style.display = 'none';
                 document.getElementById('loader').style.display = 'none';
             }
         }
+
+        function cancelUpload() {
+            if (controller) controller.abort();
+        }
+
+        // Logika Geser Slider
+        function handleMove(e) {
+            const container = document.getElementById('compareContainer');
+            const rect = container.getBoundingClientRect();
+            const x = (e.pageX || (e.touches ? e.touches[0].pageX : 0)) - rect.left;
+            const position = Math.max(0, Math.min(100, (x / rect.width) * 100));
+            
+            document.getElementById('imgAfter').style.clipPath = `inset(0 0 0 ${position}%)`;
+            document.getElementById('sliderLine').style.left = `${position}%`;
+        }
     </script>
 </body>
-  </html>
-  
+</html>
