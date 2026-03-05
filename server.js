@@ -8,14 +8,14 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Menyajikan file statis dari folder 'dist' hasil build
+// Serve static files from the 'dist' directory
 app.use(express.static(path.join(__dirname, 'dist')));
 
-// Menangani routing SPA (Single Page Application)
+// Handle SPA routing: return index.html for all non-API routes
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
 app.listen(PORT, () => {
-  console.log(`Server aktif di port ${PORT}`);
+  console.log(`Server is running on port ${PORT}`);
 });
